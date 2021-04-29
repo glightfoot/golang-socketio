@@ -44,7 +44,7 @@ type Channel struct {
 	header Header
 
 	alive     bool
-	aliveLock sync.Mutex
+	aliveLock sync.RWMutex
 
 	ack ackProcessor
 
@@ -74,8 +74,8 @@ func (c *Channel) Id() string {
 Checks that Channel is still alive
 */
 func (c *Channel) IsAlive() bool {
-	c.aliveLock.Lock()
-	defer c.aliveLock.Unlock()
+	c.aliveLock.RLock()
+	defer c.aliveLock.RUnlock()
 
 	return c.alive
 }
@@ -85,15 +85,16 @@ Close channel
 */
 func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 	c.aliveLock.Lock()
-	defer c.aliveLock.Unlock()
 
 	if !c.alive {
 		//already closed
+		c.aliveLock.Unlock()
 		return nil
 	}
 
 	c.conn.Close()
 	c.alive = false
+	c.aliveLock.Unlock()
 
 	//clean outloop
 	for len(c.out) > 0 {
