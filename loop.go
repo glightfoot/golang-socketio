@@ -85,10 +85,10 @@ Close channel
 */
 func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 	c.aliveLock.Lock()
-	defer c.aliveLock.Unlock()
 
 	if !c.alive {
 		//already closed
+		c.aliveLock.Unlock()
 		return nil
 	}
 
@@ -100,6 +100,8 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 		<-c.out
 	}
 	c.out <- protocol.CloseMessage
+
+	c.aliveLock.Unlock()
 
 	m.callLoopEvent(c, OnDisconnection)
 
@@ -113,14 +115,25 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 //incoming messages loop, puts incoming messages to In channel
 func inLoop(c *Channel, m *methods) error {
 	for {
+		if !c.IsAlive() {
+			// shutdown the inLoop
+			return nil
+		}
+
 		pkg, err := c.conn.GetMessage()
 		if err != nil {
 			return closeChannel(c, m, err)
 		}
+
 		msg, err := protocol.Decode(pkg)
 		if err != nil {
 			closeChannel(c, m, protocol.ErrorWrongPacket)
 			return err
+		}
+
+		if !c.IsAlive() {
+			// shutdown the inLoop
+			return nil
 		}
 
 		switch msg.Type {

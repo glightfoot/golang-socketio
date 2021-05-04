@@ -3,8 +3,8 @@ package gosocketio
 import (
 	"encoding/json"
 	"github.com/glightfoot/golang-socketio/protocol"
-	"sync"
 	"reflect"
+	"sync"
 )
 
 const (
