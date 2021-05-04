@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/glightfoot/golang-socketio/protocol"
 	"github.com/glightfoot/golang-socketio/transport"
+	"github.com/sasha-s/go-deadlock"
 	"net/http"
 	"sync"
 	"time"
@@ -44,7 +45,7 @@ type Channel struct {
 	header Header
 
 	alive     bool
-	aliveLock sync.RWMutex
+	aliveLock deadlock.RWMutex
 
 	ack ackProcessor
 
@@ -85,10 +86,10 @@ Close channel
 */
 func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 	c.aliveLock.Lock()
-	defer c.aliveLock.Unlock()
 
 	if !c.alive {
 		//already closed
+		c.aliveLock.Unlock()
 		return nil
 	}
 
@@ -100,6 +101,8 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 		<-c.out
 	}
 	c.out <- protocol.CloseMessage
+
+	c.aliveLock.Unlock()
 
 	m.callLoopEvent(c, OnDisconnection)
 
@@ -113,6 +116,11 @@ func closeChannel(c *Channel, m *methods, args ...interface{}) error {
 //incoming messages loop, puts incoming messages to In channel
 func inLoop(c *Channel, m *methods) error {
 	for {
+		if !c.IsAlive() {
+			// shutdown the inLoop
+			return nil
+		}
+
 		pkg, err := c.conn.GetMessage()
 		if err != nil {
 			return closeChannel(c, m, err)
