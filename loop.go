@@ -125,10 +125,16 @@ func inLoop(c *Channel, m *methods) error {
 		if err != nil {
 			return closeChannel(c, m, err)
 		}
+
 		msg, err := protocol.Decode(pkg)
 		if err != nil {
 			closeChannel(c, m, protocol.ErrorWrongPacket)
 			return err
+		}
+
+		if !c.IsAlive() {
+			// shutdown the inLoop
+			return nil
 		}
 
 		switch msg.Type {
