@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/glightfoot/golang-socketio/protocol"
 	"github.com/glightfoot/golang-socketio/transport"
-	"github.com/sasha-s/go-deadlock"
 	"net/http"
 	"sync"
 	"time"
@@ -45,7 +44,7 @@ type Channel struct {
 	header Header
 
 	alive     bool
-	aliveLock deadlock.RWMutex
+	aliveLock sync.RWMutex
 
 	ack ackProcessor
 
